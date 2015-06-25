@@ -3,16 +3,13 @@ import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 import scipy.stats as ss
 
-# L: length of matrix
-# W: width
-# p: void probability
-
 class RWMatrix:
-	def __init__(self,L,W,p):
-		self.L=L
-		self.W=W
-		self.p=p
 
+	def __init__(self,L,W,p,q):
+		self.L=L # length of matrix
+		self.W=W # width
+		self.p=p # void/available probability
+		self.q=q # bias probability of heading downwards (0<=q<=0.25)
 		mat = np.random.choice([0, 1], size=(L,W), p=[1-p,p])
 		success = 0. #keep track of successful trials
 		countarray=[]
@@ -27,19 +24,22 @@ class RWMatrix:
 				val = mat[x,y]
 			flag = 0 # while it does not reach the bottom or the top
 			count = 0
-			while flag == 0 and 0<x<L-1 and count<301: #take maximum 200 steps
+			while flag == 0 and 0<x<L-1 and count<L*2: #take maximum as twice many steps as the length
 				count += 1
-				nextdir = np.random.choice([0,1,2,3])
+				dx,dy = 0,0
+				nextdir = np.random.choice([0,1,2,3],p=[0.5-q,q,0.25,0.25])
 				if nextdir == 0: #up
-					x += (-1)
+					dx = (-1)
 				if nextdir == 1: #down
-					x += 1
+					dx = 1
 				if nextdir == 2: #left
-					y += -1
+					dy = -1
 				if nextdir == 3: #right
-					y += 1
-				y = y%W #left and right is perodic
-				if x == 0 or x == L-1:
+					dy = 1
+				if mat[x+dx,(y+dy)%W] == 1: # if the next position is available
+					x = x+dx # then update
+					y = (y+dy)%W #left and right sides are connect; perodic
+				if x == 0 or x == L-1: #when it hits the surface or the bottom
 					flag = 1 #terminates the run
 					if mat[x,y] == 1:
 						success+=1
@@ -51,29 +51,41 @@ class RWMatrix:
 		self.xarray=xarray
 		self.yarray=yarray
 
-	def plotXarrayHist(self,filename):
+	def plotXarrayHist(self):
 		plt.hist(self.xarray,bins=50, normed=True)
 		plt.xlim((0, self.L))
 		#plt.savefig(filename)
 
 
-	def plotGFit(self): #produce a gaussian fit
+	def plotUGFit(self): #produce an UN-normed gaussian fit
 		mean = np.mean(self.xarray)
 		variance = np.var(self.xarray)
 		sigma = np.sqrt(variance)
 		x = np.linspace(min(self.xarray), max(self.xarray),100)
-		plt.plot(x,mlab.normpdf(x,mean,sigma))
-		plt.show()
-
-	def plotGTheo():
-		pass		
-		#theoretical curve????
-		# a = np.linspace(ss.norm.ppf(0.01),ss.norm.ppf(0.99), 100)
-		# b = a + 75
-		# plt.plot(b, mlab.normpdf(b,75,1),'r-')
+		gfit=mlab.normpdf(x,mean,sigma)*(len(self.xarray)*(max(self.xarray)-min(self.xarray))/50)
+		plt.plot(x,gfit,label='p=%s'%self.p)
+		plt.legend()
 
 
-for p in np.arange(0.5,1.1,0.1):
-	a = RWMatrix(151,50,0.8)
-	print np.var(a.xarray)
+	def plotGFit(self): #produce a Normed gaussian fit
+		mean = np.mean(self.xarray)
+		variance = np.var(self.xarray)
+		sigma = np.sqrt(variance)
+		x = np.linspace(min(self.xarray), max(self.xarray),100)
+		plt.plot(x,mlab.normpdf(x,mean,sigma),label='p=%s'%self.p)
+		plt.legend()
 
+	def plotGTheo(self): # produce a theoretical prediction of the gaussian curve	
+		tmean = (2*self.q-0.5)*self.L*2 + self.L/2
+		tvar = 4*self.q*(0.5-self.q)*self.L*2
+		tsig = np.sqrt(tvar)
+		x = np.linspace(0, self.L,100)
+		plt.plot(x,mlab.normpdf(x,tmean,tsig),label='p=%s'%self.p, ls=':')
+
+
+for p in np.arange(0, 1.1, 0.2):
+	a = RWMatrix(201,50,p,0.25)
+	a.plotXarrayHist()
+	a.plotGFit()
+	a.plotGTheo()
+plt.show()
