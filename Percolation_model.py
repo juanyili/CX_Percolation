@@ -11,7 +11,7 @@ class RWMatrix:
 		self.p=p # void/available probability
 		self.q=q # bias probability of heading downwards (0<=q<=0.25)
 		mat = np.random.choice([0, 1], size=(L,W), p=[1-p,p])
-		success = 0. #keep track of successful trials
+		#success = 0. #keep track of successful trials
 		countarray=[]
 		xarray=[]
 		yarray=[]
@@ -41,8 +41,8 @@ class RWMatrix:
 					y = (y+dy)%W #left and right sides are connect; perodic
 				if x == 0 or x == L-1: #when it hits the surface or the bottom
 					flag = 1 #terminates the run
-					if mat[x,y] == 1:
-						success+=1
+					#if mat[x,y] == 1:
+						#success+=1
 			countarray.append(count)
 			xarray.append(x)
 			yarray.append(y)
@@ -74,18 +74,27 @@ class RWMatrix:
 		x = np.linspace(min(self.xarray), max(self.xarray),100)
 		plt.plot(x,mlab.normpdf(x,mean,sigma),label='p=%s'%self.p)
 		plt.legend()
+		print 'At p = %s, mean is %s, variance is %s' %(self.p, mean, variance)
 
 	def plotGTheo(self): # produce a theoretical prediction of the gaussian curve	
-		tmean = (2*self.q-0.5)*self.L*2 + self.L/2
-		tvar = 4*self.q*(0.5-self.q)*self.L*2
+		tmean = (2*self.q*2-1)*self.L + self.L/2
+		tvar = 4*self.q*2*(1-self.q*2)*self.L
 		tsig = np.sqrt(tvar)
 		x = np.linspace(0, self.L,100)
 		plt.plot(x,mlab.normpdf(x,tmean,tsig),label='p=%s'%self.p, ls=':')
+		plt.legend()
 
-
-for p in np.arange(0, 1.1, 0.2):
-	a = RWMatrix(201,50,p,0.25)
-	a.plotXarrayHist()
-	a.plotGFit()
-	a.plotGTheo()
-plt.show()
+#vararray=[]
+#parray=[]
+#for p in np.arange(0.4, 1.001, 0.02):
+	#a = RWMatrix(501,50,p,0.25)
+	#parray.append(p)
+	#v = np.var(a.xarray)
+	#print v
+	#vararray.append(v)
+	#a.plotXarrayHist()
+	#a.plotGFit()
+	#a.plotGTheo()
+#plt.show()
+#print parray
+#print vararray
