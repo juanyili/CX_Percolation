@@ -1,30 +1,35 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
-import scipy.stats as ss
+from scipy.ndimage import measurements
+from pylab import *
 
 class RWMatrix:
 
-	def __init__(self,L,W,p,q):
-		self.L=L # length of matrix
-		self.W=W # width
-		self.p=p # void/available probability
-		self.q=q # bias probability of heading downwards (0<=q<=0.25)
-		mat = np.random.choice([0, 1], size=(L,W), p=[1-p,p])
+	def __init__(self,L,W,p):
+		self.L=L # length of matrix; coordinates to x
+		self.W=W # width; coordinates to y
+		self.p=p # void/ava probability
+		self.mat = np.random.choice([0, 1], size=(L,W), p=[1-p,p])
+
+	def walk(self,m,q,N):
+		#m walkers released
+		#q bias probability of heading downwards (0<=q<=0.25)
+		#N max steps a walker takes; when p>pc, it should be about 2*L
 		#success = 0. #keep track of successful trials
 		countarray=[]
 		xarray=[]
 		yarray=[]
 		posarray=[]
-		for i in range(1000):
+		for i in range(m):
 			# choose a random cell in the center that has value 1
 			val = 0
 			while val == 0:
-				x,y = L/2, np.random.randint(0,W)
-				val = mat[x,y]
+				x,y = self.L/2, np.random.randint(0,self.W)
+				val = self.mat[x,y]
 			flag = 0 # while it does not reach the bottom or the top
 			count = 0
-			while flag == 0 and 0<x<L-1 and count<L*2: #take maximum as twice many steps as the length
+			while flag == 0 and 0<x<self.L-1 and count<N: #take maximum as twice many steps as the length
 				count += 1
 				dx,dy = 0,0
 				nextdir = np.random.choice([0,1,2,3],p=[0.5-q,q,0.25,0.25])
@@ -36,10 +41,10 @@ class RWMatrix:
 					dy = -1
 				if nextdir == 3: #right
 					dy = 1
-				if mat[x+dx,(y+dy)%W] == 1: # if the next position is available
+				if self.mat[x+dx,(y+dy)%self.W] == 1: # if the next position is ava
 					x = x+dx # then update
-					y = (y+dy)%W #left and right sides are connect; perodic
-				if x == 0 or x == L-1: #when it hits the surface or the bottom
+					y = (y+dy)%self.W #left and right sides are connect; perodic
+				if x == 0 or x == self.L-1: #when it hits the surface or the bottom
 					flag = 1 #terminates the run
 					#if mat[x,y] == 1:
 						#success+=1
@@ -52,8 +57,9 @@ class RWMatrix:
 		self.yarray=yarray
 
 	def plotXarrayHist(self):
-		plt.hist(self.xarray,bins=50, normed=True)
+		plt.hist(self.xarray,bins=50, normed=True, label='p=%s'%self.p)
 		plt.xlim((0, self.L))
+		plt.legend()
 		#plt.savefig(filename)
 
 
@@ -84,17 +90,116 @@ class RWMatrix:
 		plt.plot(x,mlab.normpdf(x,tmean,tsig),label='p=%s'%self.p, ls=':')
 		plt.legend()
 
-#vararray=[]
-#parray=[]
-#for p in np.arange(0.4, 1.001, 0.02):
-	#a = RWMatrix(501,50,p,0.25)
-	#parray.append(p)
-	#v = np.var(a.xarray)
-	#print v
-	#vararray.append(v)
-	#a.plotXarrayHist()
-	#a.plotGFit()
-	#a.plotGTheo()
-#plt.show()
-#print parray
-#print vararray
+
+	def show(self):
+		plt.show()
+
+	def savefig(self,filename):
+		plt.savefig(filename)
+
+# use scipy package; should be written into a method
+# subplot(1,3,1)
+# a=RWMatrix(50,30,0.55)
+# imshow(a.mat, origin='lower', interpolation='nearest', cmap='binary')
+# colorbar()
+# title("Matrix")
+
+# lw, num = measurements.label(a.mat)
+
+# subplot(1,3,2)
+# area = measurements.sum(a.mat, lw, index=arange(lw.max() + 1))
+# areaImg = area[lw]
+# im3 = imshow(areaImg, origin='lower', interpolation='nearest')
+# colorbar()
+# title("Clusters by area")
+
+# # Bounding box
+# sliced = measurements.find_objects(areaImg == areaImg.max())
+# if(len(sliced) > 0):
+#     sliceX = sliced[0][1]
+#     sliceY = sliced[0][0]
+#     plotxlim=im3.axes.get_xlim()
+#     plotylim=im3.axes.get_ylim()
+#     plot([sliceX.start, sliceX.start, sliceX.stop, sliceX.stop, sliceX.start], \
+#                       [sliceY.start, sliceY.stop, sliceY.stop, sliceY.start, sliceY.start], \
+#                       color="red")
+#     xlim(plotxlim)
+#     ylim(plotylim)
+
+# subplot(1,3,3)
+# hist(area, bins=15)
+# title("histogram of cluster size distribution")
+
+# show()
+
+	def labelCluster(self):
+		def find(target):
+			return target
+
+		def union(label,left,above): #unite two clusters together
+			small = min(left,above)
+			big = max(left,above)
+			temp = np.reshape(label,[1,self.W*self.L])
+			i = [small if i ==big else i for i in temp[0]]
+			label = np.reshape(i,[self.L,self.W])
+			return label
+
+		ll = 0
+		label=np.zeros([self.L,self.W])
+		for x in range(self.L):
+			for y in range(self.W):
+				if self.mat[x,y] == 1:
+					left = label[x-1,y]
+					above = label[x,y-1]
+					if x == 0 and y == 0: #first cell upper right
+						ll+=1
+						label[x,y] = ll
+					elif x == 0 and y != 0: #first column
+						if self.mat[x,y-1]==0: #above empty
+							ll+=1
+							label[x,y] = ll #above not empty
+						else: #above not empty
+							label[x,y]=find(above)
+					elif y == 0 and x!=0: #first row
+						if self.mat[x-1,y] ==0: #left empty
+							ll+=1
+							label[x,y] = ll
+						else: #left not empty
+							label[x,y]=find(left)
+					elif x!=0 and y!= 0:
+						if self.mat[x-1,y] == 0 and self.mat[x,y-1] == 0:
+							ll+=1
+							label[x,y]=ll
+						elif self.mat[x-1,y] != 0 and self.mat[x,y-1] == 0: #left not empty, above is
+							label[x,y] = find(left)
+						elif self.mat[x-1,y] == 0 and self.mat[x,y-1] != 0: #left empty, above is not
+							label[x,y] = find(above)
+						else: # when both neighbors are already labelled
+							label = union(label,left,above) #change all left index to above index
+							label[x,y] = min(left,above)
+
+		def periodic(label):
+			for x in range(self.L):
+				left = label[x,0]
+				right = label[x,self.W-1]
+				if left!=0 and right!=0 and left!=right:
+					print x
+					small = min(label[x,0],label[x,self.W-1])
+					big = max(label[x,0],label[x,self.W-1])
+					temp = np.reshape(label,[1,self.W*self.L])
+					i = [small if i == big else i for i in temp[0]]
+					label = np.reshape(i,[self.L,self.W])
+			return label
+
+		def correctIndex(label):
+			unique = np.unique(label[np.nonzero(label)]) #generate an array of only unique nonzero values
+			print unique
+			temp=np.reshape(label,[1,self.W*self.L])
+			i = [np.nonzero(unique==i)[0][0]+1 if i !=0 else i for i in temp[0]]
+			label = np.reshape(i,[self.L,self.W])
+			return label
+
+		label = periodic(label)
+		label = correctIndex(label)
+		return label
+
