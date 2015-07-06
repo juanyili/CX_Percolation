@@ -56,12 +56,13 @@ class RWMatrix:
 		self.xarray=xarray
 		self.yarray=yarray
 
+
+#different plots
 	def plotXarrayHist(self):
 		plt.hist(self.xarray,bins=50, normed=True, label='p=%s'%self.p)
 		plt.xlim((0, self.L))
 		plt.legend()
 		#plt.savefig(filename)
-
 
 	def plotUGFit(self): #produce an UN-normed gaussian fit
 		mean = np.mean(self.xarray)
@@ -71,7 +72,6 @@ class RWMatrix:
 		gfit=mlab.normpdf(x,mean,sigma)*(len(self.xarray)*(max(self.xarray)-min(self.xarray))/50)
 		plt.plot(x,gfit,label='p=%s'%self.p)
 		plt.legend()
-
 
 	def plotGFit(self): #produce a Normed gaussian fit
 		mean = np.mean(self.xarray)
@@ -90,12 +90,93 @@ class RWMatrix:
 		plt.plot(x,mlab.normpdf(x,tmean,tsig),label='p=%s'%self.p, ls=':')
 		plt.legend()
 
-
 	def show(self):
 		plt.show()
 
 	def savefig(self,filename):
 		plt.savefig(filename)
+
+
+#cluster size analysis
+	def labelCluster(self):
+		def find(target):
+			return target
+		def union(label,left,above): #unite two clusters together
+			small = min(left,above)
+			big = max(left,above)
+			temp = np.reshape(label,[1,self.W*self.L])
+			i = [small if i ==big else i for i in temp[0]]
+			label = np.reshape(i,[self.L,self.W])
+			return label
+		ll = 0
+		label=np.zeros([self.L,self.W])
+		for x in range(self.L):
+			for y in range(self.W):
+				if self.mat[x,y] == 1:
+					left = label[x-1,y]
+					above = label[x,y-1]
+					if x == 0 and y == 0: #first cell upper right
+						ll+=1
+						label[x,y] = ll
+					elif x == 0 and y != 0: #first column
+						if self.mat[x,y-1]==0: #above empty
+							ll+=1
+							label[x,y] = ll #above not empty
+						else: #above not empty
+							label[x,y]=find(above)
+					elif y == 0 and x!=0: #first row
+						if self.mat[x-1,y] ==0: #left empty
+							ll+=1
+							label[x,y] = ll
+						else: #left not empty
+							label[x,y]=find(left)
+					elif x!=0 and y!= 0:
+						if self.mat[x-1,y] == 0 and self.mat[x,y-1] == 0:
+							ll+=1
+							label[x,y]=ll
+						elif self.mat[x-1,y] != 0 and self.mat[x,y-1] == 0: #left not empty, above is
+							label[x,y] = find(left)
+						elif self.mat[x-1,y] == 0 and self.mat[x,y-1] != 0: #left empty, above is not
+							label[x,y] = find(above)
+						else: # when both neighbors are already labelled
+							label = union(label,left,above) #change all left index to above index
+							label[x,y] = min(left,above)
+		def periodic(label):
+			for x in range(self.L):
+				left = label[x,0]
+				right = label[x,self.W-1]
+				if left!=0 and right!=0 and left!=right:
+					small = min(label[x,0],label[x,self.W-1])
+					big = max(label[x,0],label[x,self.W-1])
+					temp = np.reshape(label,[1,self.W*self.L])
+					i = [small if i == big else i for i in temp[0]]
+					label = np.reshape(i,[self.L,self.W])
+			return label
+		def correctIndex(label):
+			unique = np.unique(label[np.nonzero(label)]) #generate an array of only unique nonzero values
+			temp=np.reshape(label,[1,self.W*self.L])
+			i = [np.nonzero(unique==i)[0][0]+1 if i !=0 else i for i in temp[0]]
+			label = np.reshape(i,[self.L,self.W])
+			return label
+
+		label = periodic(label)
+		label = correctIndex(label)
+		return label
+
+
+	def clusterDistribution(self,label): 
+		import collections
+		counter=collections.Counter(np.reshape(label,[1,self.L*self.W])[0])
+		print counter
+		return counter.values() #generate an array of area sizes
+		#print(counter.keys()) # gives a list of unique labels
+
+	def largestCluster(self,label): # largest size
+		import collections
+		counter=collections.Counter(np.reshape(label,[1,self.L*self.W])[0])
+		return counter.most_common(1)[0][1]
+
+	
 
 # use scipy package; should be written into a method
 # subplot(1,3,1)
@@ -131,75 +212,3 @@ class RWMatrix:
 # title("histogram of cluster size distribution")
 
 # show()
-
-	def labelCluster(self):
-		def find(target):
-			return target
-
-		def union(label,left,above): #unite two clusters together
-			small = min(left,above)
-			big = max(left,above)
-			temp = np.reshape(label,[1,self.W*self.L])
-			i = [small if i ==big else i for i in temp[0]]
-			label = np.reshape(i,[self.L,self.W])
-			return label
-
-		ll = 0
-		label=np.zeros([self.L,self.W])
-		for x in range(self.L):
-			for y in range(self.W):
-				if self.mat[x,y] == 1:
-					left = label[x-1,y]
-					above = label[x,y-1]
-					if x == 0 and y == 0: #first cell upper right
-						ll+=1
-						label[x,y] = ll
-					elif x == 0 and y != 0: #first column
-						if self.mat[x,y-1]==0: #above empty
-							ll+=1
-							label[x,y] = ll #above not empty
-						else: #above not empty
-							label[x,y]=find(above)
-					elif y == 0 and x!=0: #first row
-						if self.mat[x-1,y] ==0: #left empty
-							ll+=1
-							label[x,y] = ll
-						else: #left not empty
-							label[x,y]=find(left)
-					elif x!=0 and y!= 0:
-						if self.mat[x-1,y] == 0 and self.mat[x,y-1] == 0:
-							ll+=1
-							label[x,y]=ll
-						elif self.mat[x-1,y] != 0 and self.mat[x,y-1] == 0: #left not empty, above is
-							label[x,y] = find(left)
-						elif self.mat[x-1,y] == 0 and self.mat[x,y-1] != 0: #left empty, above is not
-							label[x,y] = find(above)
-						else: # when both neighbors are already labelled
-							label = union(label,left,above) #change all left index to above index
-							label[x,y] = min(left,above)
-
-		def periodic(label):
-			for x in range(self.L):
-				left = label[x,0]
-				right = label[x,self.W-1]
-				if left!=0 and right!=0 and left!=right:
-					print x
-					small = min(label[x,0],label[x,self.W-1])
-					big = max(label[x,0],label[x,self.W-1])
-					temp = np.reshape(label,[1,self.W*self.L])
-					i = [small if i == big else i for i in temp[0]]
-					label = np.reshape(i,[self.L,self.W])
-			return label
-
-		def correctIndex(label):
-			unique = np.unique(label[np.nonzero(label)]) #generate an array of only unique nonzero values
-			print unique
-			temp=np.reshape(label,[1,self.W*self.L])
-			i = [np.nonzero(unique==i)[0][0]+1 if i !=0 else i for i in temp[0]]
-			label = np.reshape(i,[self.L,self.W])
-			return label
-
-		label = periodic(label)
-		label = correctIndex(label)
-		return label
-
