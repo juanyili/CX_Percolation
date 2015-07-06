@@ -97,15 +97,15 @@ class RWMatrix:
 		plt.savefig(filename)
 
 
-#cluster size analysis
+	# Label the matrix into clusters
 	def labelCluster(self):
 		def find(target):
 			return target
 		def union(label,left,above): #unite two clusters together
 			small = min(left,above)
 			big = max(left,above)
-			temp = np.reshape(label,[1,self.W*self.L])
-			i = [small if i ==big else i for i in temp[0]]
+			temp = label.flatten()
+			i = [small if i ==big else i for i in temp]
 			label = np.reshape(i,[self.L,self.W])
 			return label
 		ll = 0
@@ -148,14 +148,14 @@ class RWMatrix:
 				if left!=0 and right!=0 and left!=right:
 					small = min(label[x,0],label[x,self.W-1])
 					big = max(label[x,0],label[x,self.W-1])
-					temp = np.reshape(label,[1,self.W*self.L])
-					i = [small if i == big else i for i in temp[0]]
+					temp = label.flatten()
+					i = [small if i == big else i for i in temp]
 					label = np.reshape(i,[self.L,self.W])
 			return label
 		def correctIndex(label):
 			unique = np.unique(label[np.nonzero(label)]) #generate an array of only unique nonzero values
-			temp=np.reshape(label,[1,self.W*self.L])
-			i = [np.nonzero(unique==i)[0][0]+1 if i !=0 else i for i in temp[0]]
+			temp=label.flatten()
+			i = [np.nonzero(unique==i)[0][0]+1 if i !=0 else i for i in temp]
 			label = np.reshape(i,[self.L,self.W])
 			return label
 
@@ -163,20 +163,20 @@ class RWMatrix:
 		label = correctIndex(label)
 		return label
 
+	# Return an array of the cluster size distribution
+	# EXAMPLE: print max(a.clusterDistribution(l)) #largest cluster size
+	# EXAMPLE: plt.hist(a.clusterDistribution(l)) # histrogram of distribution
+	def clusterDistribution(self,label):
+		sizearray=[]
+		for i in np.arange(1,label.max()+1):
+			sizearray.append(np.count_nonzero(label==i))
+		return sizearray
 
-	def clusterDistribution(self,label): 
-		import collections
-		counter=collections.Counter(np.reshape(label,[1,self.L*self.W])[0])
-		print counter
-		return counter.values() #generate an array of area sizes
-		#print(counter.keys()) # gives a list of unique labels
-
-	def largestCluster(self,label): # largest size
-		import collections
-		counter=collections.Counter(np.reshape(label,[1,self.L*self.W])[0])
-		return counter.most_common(1)[0][1]
-
-	
+	# Return True if there is a spanning cluster
+	def spanningCluster(self,label):
+		span = set(label[0,:]) & set(label[self.W-1,:])
+		span.remove(0.0)
+		return len(span) != 0
 
 # use scipy package; should be written into a method
 # subplot(1,3,1)
